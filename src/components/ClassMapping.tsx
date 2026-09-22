@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ArrowLeft, Plus, RefreshCw, Trash2 } from "lucide-react"
+import { ArrowLeft, ArrowDownToLine, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -48,6 +48,51 @@ export function ClassMapping({ property, batchId, onBack }: Props) {
   const [syncing, setSyncing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [savingId, setSavingId] = React.useState<number | null>(null)
+  const [applyingId, setApplyingId] = React.useState<number | null>(null)
+
+  /** Ports PostEtlToDetail. Pushes this mapping's MRU/BMR, Modifier and Categories onto every
+   *  rent roll detail row whose FloorPlan matches the unit class — scoped to this batch when
+   *  the page was opened from one, otherwise every batch for the property. It overwrites
+   *  detail data, so it confirms first. */
+  async function applyToDetail(row: ClassMappingDto) {
+    const scope =
+      batchId == null
+        ? `every batch for ${property.name}`
+        : `batch ${batchId}`
+    if (
+      !confirm(
+        `Apply mapping "${row.unitClass}" to the rent roll detail rows in ${scope}?
+
+` +
+          `This overwrites MRU/BMR, Modifier and Categories on every detail row whose ` +
+          `FloorPlan matches "${row.unitClass}".`
+      )
+    )
+      return
+    setApplyingId(row.mappingID)
+    try {
+      const result = await api.applyClassMappingToDetail(
+        row.mappingID,
+        batchId == null ? { allBatches: true } : { batchId }
+      )
+      if (result.warning) {
+        toast.warning(result.warning)
+      } else if (result.rowsTargeted === 0) {
+        toast.info(
+          `No detail rows have FloorPlan "${result.unitClass}" in ${scope}, so nothing changed.`
+        )
+      } else {
+        toast.success(
+          `Applied ${result.applied.join(", ")} to ${result.rowsTargeted} detail row` +
+            `${result.rowsTargeted === 1 ? "" : "s"}.`
+        )
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to apply to detail")
+    } finally {
+      setApplyingId(null)
+    }
+  }
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -189,12 +234,13 @@ export function ClassMapping({ property, batchId, onBack }: Props) {
                   <TableHead className="text-right">Unit Count</TableHead>
                   <TableHead className="text-right">Avg SqFt</TableHead>
                   <TableHead></TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
                       No class mappings for this property yet.
                     </TableCell>
                   </TableRow>
@@ -288,6 +334,18 @@ export function ClassMapping({ property, batchId, onBack }: Props) {
                     <TableCell className="text-right tabular-nums">{row.tally ?? 0}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {row.avgSquareFeet ? Number(row.avgSquareFeet).toFixed(0) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => applyToDetail(row)}
+                        disabled={applyingId === row.mappingID}
+                        title="Apply this mapping to the rent roll detail rows"
+                      >
+                        <ArrowDownToLine className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <Button

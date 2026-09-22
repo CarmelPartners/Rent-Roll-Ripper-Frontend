@@ -19,17 +19,18 @@ interface Props {
   property: PropertyDto
   onBack: () => void
   onOpenClassMapping: (property: PropertyDto, batchId: number) => void
+  onOpenDetails: (property: PropertyDto, batchId: number) => void
+  onOpenExport: (property: PropertyDto, batchId: number) => void
+  onOpenUnique: (property: PropertyDto, batchId: number) => void
   onUploadNew: (property: PropertyDto) => void
 }
 
-/** Placeholder for the RentRoll Details ("Review RR") and Export links — those pages
- *  (RentRollDetailsList.razor / Rentrolldetailslist_Preview.razor) aren't ported yet. */
-function NotBuiltYetLink({ label, feature }: { label: string; feature: string }) {
+function RowLink({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
       className="text-primary underline underline-offset-2 hover:no-underline"
-      onClick={() => toast.info(`${feature} hasn't been ported to the new app yet.`)}
+      onClick={onClick}
     >
       {label}
     </button>
@@ -43,7 +44,15 @@ function toDateInputValue(value: string | null): string {
 
 /** Ports PropertyHistoryList.razor: the batch/upload history for one property, with the
  *  "king batch" star/rank flags editable in place (see backend/shared/batches.py). */
-export function PropertyHistory({ property, onBack, onOpenClassMapping, onUploadNew }: Props) {
+export function PropertyHistory({
+  property,
+  onBack,
+  onOpenClassMapping,
+  onOpenDetails,
+  onOpenExport,
+  onOpenUnique,
+  onUploadNew,
+}: Props) {
   const [batches, setBatches] = React.useState<BatchDto[]>([])
   const [showAll, setShowAll] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
@@ -136,13 +145,14 @@ export function PropertyHistory({ property, onBack, onOpenClassMapping, onUpload
                   <TableHead>Review RR</TableHead>
                   <TableHead>Export</TableHead>
                   <TableHead>Class Mapping</TableHead>
+                  <TableHead>RR Unique</TableHead>
                   <TableHead>Upload New</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {batches.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={13} className="h-24 text-center text-muted-foreground">
                       No batches found for this property.
                     </TableCell>
                   </TableRow>
@@ -201,28 +211,25 @@ export function PropertyHistory({ property, onBack, onOpenClassMapping, onUpload
                     </TableCell>
                     <TableCell>{b.username}</TableCell>
                     <TableCell>
-                      <NotBuiltYetLink label="Review RR" feature="Rent roll details review" />
+                      <RowLink label="Review RR" onClick={() => onOpenDetails(property, b.batchID)} />
                     </TableCell>
                     <TableCell>
-                      <NotBuiltYetLink label="Export" feature="Rent roll export preview" />
+                      <RowLink label="Export" onClick={() => onOpenExport(property, b.batchID)} />
                     </TableCell>
                     <TableCell>
-                      <button
-                        type="button"
-                        className="text-primary underline underline-offset-2 hover:no-underline"
+                      <RowLink
+                        label="Class Mapping"
                         onClick={() => onOpenClassMapping(property, b.batchID)}
-                      >
-                        Class Mapping
-                      </button>
+                      />
                     </TableCell>
                     <TableCell>
-                      <button
-                        type="button"
-                        className="text-primary underline underline-offset-2 hover:no-underline"
-                        onClick={() => onUploadNew(property)}
-                      >
-                        Upload New
-                      </button>
+                      <RowLink
+                        label="RR Unique"
+                        onClick={() => onOpenUnique(property, b.batchID)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <RowLink label="Upload New" onClick={() => onUploadNew(property)} />
                     </TableCell>
                   </TableRow>
                 ))}

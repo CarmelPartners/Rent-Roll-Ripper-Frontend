@@ -39,9 +39,30 @@ SP, assumed SAML attribute names, etc.) and `../backend/shared/properties.py` fo
 intentional response-shape change (`{created, propertyID, message}` instead of the legacy DAL's
 ambiguous string return).
 
-## What's not ported yet
+## Pages
 
-Everything except Property list/add: RentRoll unique/details/history, class mapping, charge
-codes, modifiers, upload, batch/ETL actions — still only on the old ASP.NET/Blazor backend. Same
-`src/lib/api.ts` + `src/components/*` pattern extends directly to those once their routes exist
-in `../backend`.
+| Legacy page | Component |
+| --- | --- |
+| PropertyStageList / PropertyList | `PropertyList.tsx` (+ row delete) |
+| PropertyAdd | `AddPropertyDialog.tsx` |
+| PropertyHistoryList | `PropertyHistory.tsx` |
+| ClassMapping | `ClassMapping.tsx` |
+| Upload | `UploadRentRollDialog.tsx` |
+| ChargeCodeList | `ChargeCodeList.tsx` |
+| ModifierList | `ModifierList.tsx` |
+| CarmelStandardClass | `StandardClassList.tsx` |
+| RentRollUniqueList | `RentRollUniqueList.tsx` |
+| RentRollDetailsList ("Review RR") | `RentRollDetails.tsx` |
+| Rentrolldetailslist_Preview ("Export") | `ExportPreview.tsx` |
+
+Reference-data pages (charge codes, modifiers, standard classes) are reachable from the top
+nav; the per-batch pages (Review RR, Export, Class Mapping, RR Unique) are reached from a batch
+row on Property History, which is how the legacy app linked them.
+
+`App.tsx` still uses a union-typed `View` state rather than a router. That's fine at this size
+but is the obvious next refactor now that there are nine views — deep links and browser
+back/forward don't work today.
+
+Not ported: the "One Site" upload format and class mapping's "apply to detail" (both blocked in
+the backend — see `../backend/README.md`). Several of these pages had no working legacy original
+to copy; that README lists which and why.

@@ -2,22 +2,45 @@ import * as React from "react"
 import { Building2, LogOut, RefreshCw } from "lucide-react"
 import { Toaster } from "sonner"
 import { AddPropertyDialog } from "@/components/AddPropertyDialog"
+import { ChargeCodeList } from "@/components/ChargeCodeList"
 import { ClassMapping } from "@/components/ClassMapping"
+import { ExportPreview } from "@/components/ExportPreview"
+import { ModifierList } from "@/components/ModifierList"
 import { PropertyHistory } from "@/components/PropertyHistory"
 import { PropertyList } from "@/components/PropertyList"
+import { RentRollDetails } from "@/components/RentRollDetails"
+import { RentRollUniqueList } from "@/components/RentRollUniqueList"
+import { StandardClassList } from "@/components/StandardClassList"
 import { UploadRentRollDialog } from "@/components/UploadRentRollDialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
+import { cn } from "@/lib/utils"
 import type { PropertyConstructionTypeObject, PropertyDto } from "@/types"
 
-// No router yet — there are only a few views today, so a small union state
-// machine is simpler than pulling in react-router for this pass.
+// No router yet — a small union state machine is still simpler than pulling in
+// react-router for this pass.
 type View =
   | { name: "properties" }
   | { name: "history"; property: PropertyDto }
   | { name: "classMapping"; property: PropertyDto; batchId: number | null }
+  | { name: "details"; property: PropertyDto; batchId: number }
+  | { name: "export"; property: PropertyDto; batchId: number }
+  | { name: "unique"; property: PropertyDto; batchId: number | null }
+  | { name: "chargeCodes" }
+  | { name: "modifiers" }
+  | { name: "standardClasses" }
+
+/** The reference-data pages, which aren't scoped to a property — the legacy nav links
+ *  (chargecodelist / modifierlist / carmelstandardclass) with their /{PropertyID}/{BatchID}
+ *  route params, which those three pages never actually read. */
+const GLOBAL_TABS: Array<{ view: View["name"]; label: string }> = [
+  { view: "properties", label: "Properties" },
+  { view: "chargeCodes", label: "Charge Codes" },
+  { view: "modifiers", label: "Modifiers" },
+  { view: "standardClasses", label: "Carmel Standard Class" },
+]
 
 export default function App() {
   const { user, signOut } = useAuth()
@@ -54,6 +77,8 @@ export default function App() {
     load()
   }, [load])
 
+  const backToProperties = () => setView({ name: "properties" })
+
   return (
     <div className="min-h-screen bg-muted/30">
       <Toaster position="top-right" richColors />
@@ -63,7 +88,7 @@ export default function App() {
             <Building2 className="h-8 w-8 text-primary" />
             <div>
               <h1 className="text-2xl font-bold tracking-tight">RentRoll</h1>
-              <p className="text-sm text-muted-foreground">Properties</p>
+              <p className="text-sm text-muted-foreground">Properties &amp; reference data</p>
             </div>
           </div>
           {user && (
@@ -76,21 +101,68 @@ export default function App() {
           )}
         </header>
 
+        <nav className="mb-6 flex flex-wrap gap-2">
+          {GLOBAL_TABS.map((tab) => (
+            <button
+              key={tab.view}
+              type="button"
+              onClick={() => setView({ name: tab.view } as View)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm",
+                view.name === tab.view
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background hover:bg-muted"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+
         {view.name === "history" ? (
           <PropertyHistory
             property={view.property}
-            onBack={() => setView({ name: "properties" })}
+            onBack={backToProperties}
             onOpenClassMapping={(property, batchId) =>
               setView({ name: "classMapping", property, batchId })
             }
+            onOpenDetails={(property, batchId) =>
+              setView({ name: "details", property, batchId })
+            }
+            onOpenExport={(property, batchId) => setView({ name: "export", property, batchId })}
+            onOpenUnique={(property, batchId) => setView({ name: "unique", property, batchId })}
             onUploadNew={(property) => setUploadProperty(property)}
           />
         ) : view.name === "classMapping" ? (
           <ClassMapping
             property={view.property}
             batchId={view.batchId}
-            onBack={() => setView({ name: "properties" })}
+            onBack={backToProperties}
           />
+        ) : view.name === "details" ? (
+          <RentRollDetails
+            property={view.property}
+            batchId={view.batchId}
+            onBack={backToProperties}
+          />
+        ) : view.name === "export" ? (
+          <ExportPreview
+            property={view.property}
+            batchId={view.batchId}
+            onBack={backToProperties}
+          />
+        ) : view.name === "unique" ? (
+          <RentRollUniqueList
+            property={view.property}
+            batchId={view.batchId}
+            onBack={backToProperties}
+          />
+        ) : view.name === "chargeCodes" ? (
+          <ChargeCodeList onBack={backToProperties} />
+        ) : view.name === "modifiers" ? (
+          <ModifierList onBack={backToProperties} />
+        ) : view.name === "standardClasses" ? (
+          <StandardClassList onBack={backToProperties} />
         ) : (
           <Card>
             <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-4 space-y-0">
@@ -125,6 +197,7 @@ export default function App() {
                       setView({ name: "classMapping", property, batchId: property.maxBatchID })
                     }
                     onUploadNew={(property) => setUploadProperty(property)}
+                    onDeleted={load}
                   />
                 </div>
               )}

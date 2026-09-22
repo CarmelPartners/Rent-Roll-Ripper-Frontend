@@ -22,10 +22,10 @@ interface Props {
 }
 
 /** Ports Upload.razor: pick an upload type + file + rent roll date, upload to
- *  POST /api/upload. Only "Yardi Single Line" is implemented on the backend so far
- *  (see backend/shared/rentroll_upload.py) — the other two types are still offered
- *  since the backend is the source of truth for what's supported, and will return a
- *  clear error rather than silently doing nothing if picked. */
+ *  POST /api/upload. Both Yardi types are implemented on the backend; "One Site" isn't
+ *  yet (see backend/shared/rentroll_upload.py) but is still offered, since the backend
+ *  is the source of truth for what's supported and returns a clear error rather than
+ *  silently doing nothing if picked. */
 export function UploadRentRollDialog({ property, open, onOpenChange, onUploaded }: Props) {
   const [uploadTypes, setUploadTypes] = React.useState<string[]>([])
   const [uploadType, setUploadType] = React.useState("")
