@@ -2,12 +2,23 @@ import type {
   AddClassMappingResult,
   AddPropertyInput,
   AddPropertyResult,
+  ApplyToDetailResult,
   BatchDto,
+  ChargeCodeDto,
   ClassMappingDto,
   ClassMappingInput,
+  ExportPreviewRow,
+  ExportReportName,
+  ExportReportRow,
+  ModifierDto,
   NamedOption,
   PropertyConstructionTypeObject,
   PropertyDto,
+  RentRollDetailDto,
+  RentRollUniqueDto,
+  RentRollUniqueInput,
+  StandardClassDto,
+  StandardClassInput,
   UpdateBatchInput,
   UploadRentRollResult,
   UserClaims,
@@ -162,5 +173,219 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ batchId, propertyId }),
     })
+  },
+
+  /** Ports PostEtlToDetail: push one mapping row onto the rent roll detail rows it covers.
+   *  The scope is explicit — a batch id, or allBatches for the whole property. The API
+   *  rejects an unscoped call, because this overwrites detail rows. */
+  applyClassMappingToDetail(
+    mappingId: number,
+    scope: { batchId: number } | { allBatches: true }
+  ): Promise<ApplyToDetailResult> {
+    return request<ApplyToDetailResult>(`/class-mapping/${mappingId}/apply-to-detail`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(scope),
+    })
+  },
+
+  // --- properties: edit / delete (PropertyStageController PostUpdate / PostDelete) ---
+
+  updateProperty(
+    propertyId: string,
+    input: Partial<PropertyDto> & { propertyPK: number }
+  ): Promise<{ updated: boolean; propertyID: string }> {
+    return request(`/properties/${propertyId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    })
+  },
+
+  deleteProperty(
+    propertyId: string,
+    propertyPK: number
+  ): Promise<{ deleted: boolean; message: string }> {
+    return request(`/properties/${propertyId}?propertyPK=${propertyPK}`, { method: "DELETE" })
+  },
+
+  // --- charge codes ---
+
+  getChargeCodes(): Promise<ChargeCodeDto[]> {
+    return request<ChargeCodeDto[]>("/charge-codes")
+  },
+
+  addChargeCode(chargeCodeName: string, include: boolean): Promise<{ added: boolean }> {
+    return request("/charge-codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chargeCodeName, include }),
+    })
+  },
+
+  updateChargeCode(
+    chargeCodeId: number,
+    chargeCodeName: string,
+    include: boolean
+  ): Promise<{ updated: boolean }> {
+    return request(`/charge-codes/${chargeCodeId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chargeCodeName, include }),
+    })
+  },
+
+  deleteChargeCode(chargeCodeId: number): Promise<{ deleted: boolean }> {
+    return request(`/charge-codes/${chargeCodeId}`, { method: "DELETE" })
+  },
+
+  syncChargeCodes(): Promise<{ synced: boolean }> {
+    return request("/charge-codes/sync", { method: "POST" })
+  },
+
+  // --- modifiers ---
+
+  getModifierList(): Promise<ModifierDto[]> {
+    return request<ModifierDto[]>("/modifiers")
+  },
+
+  addModifier(modifierName: string): Promise<{ added: boolean }> {
+    return request("/modifiers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ modifierName }),
+    })
+  },
+
+  updateModifier(modifierId: number, modifierName: string): Promise<{ updated: boolean }> {
+    return request(`/modifiers/${modifierId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ modifierName }),
+    })
+  },
+
+  deleteModifier(modifierId: number): Promise<{ deleted: boolean }> {
+    return request(`/modifiers/${modifierId}`, { method: "DELETE" })
+  },
+
+  syncModifiers(): Promise<{ synced: boolean }> {
+    return request("/modifiers/sync", { method: "POST" })
+  },
+
+  // --- carmel standard class ---
+
+  getStandardClasses(): Promise<StandardClassDto[]> {
+    return request<StandardClassDto[]>("/standard-classes")
+  },
+
+  addStandardClass(input: StandardClassInput): Promise<{ classKey: number }> {
+    return request("/standard-classes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    })
+  },
+
+  updateStandardClass(
+    classKey: number,
+    input: StandardClassInput
+  ): Promise<{ updated: boolean }> {
+    return request(`/standard-classes/${classKey}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    })
+  },
+
+  deleteStandardClass(classKey: number): Promise<{ deleted: boolean }> {
+    return request(`/standard-classes/${classKey}`, { method: "DELETE" })
+  },
+
+  // --- RR unique ---
+
+  getRentRollUnique(propertyId?: string): Promise<RentRollUniqueDto[]> {
+    const qs = propertyId ? `?propertyId=${encodeURIComponent(propertyId)}` : ""
+    return request<RentRollUniqueDto[]>(`/rentroll-unique${qs}`)
+  },
+
+  addRentRollUnique(
+    propertyId: string,
+    input: RentRollUniqueInput
+  ): Promise<{ id: number }> {
+    return request("/rentroll-unique", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...input, propertyId }),
+    })
+  },
+
+  updateRentRollUnique(
+    rowId: number,
+    input: RentRollUniqueInput
+  ): Promise<{ updated: boolean }> {
+    return request(`/rentroll-unique/${rowId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    })
+  },
+
+  deleteRentRollUnique(rowId: number): Promise<{ deleted: boolean }> {
+    return request(`/rentroll-unique/${rowId}`, { method: "DELETE" })
+  },
+
+  syncRentRollUnique(batchId: number, propertyId: string): Promise<{ synced: boolean }> {
+    return request("/rentroll-unique/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ batchId, propertyId }),
+    })
+  },
+
+  // --- rent roll details (Review RR) ---
+
+  getRentRollDetails(batchId: number, propertyId?: string): Promise<RentRollDetailDto[]> {
+    const qs = new URLSearchParams({ batchId: String(batchId) })
+    if (propertyId) qs.set("propertyId", propertyId)
+    return request<RentRollDetailDto[]>(`/rentroll-details?${qs}`)
+  },
+
+  updateRentRollDetails(
+    rows: Array<Partial<RentRollDetailDto> & { recordID: number }>
+  ): Promise<{ updated: number }> {
+    return request("/rentroll-details", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    })
+  },
+
+  deleteRentRollDetail(recordId: number): Promise<{ deleted: boolean }> {
+    return request(`/rentroll-details/${recordId}`, { method: "DELETE" })
+  },
+
+  syncRentRollDetails(batchId: number, propertyId: string): Promise<{ synced: boolean }> {
+    return request("/rentroll-details/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ batchId, propertyId }),
+    })
+  },
+
+  // --- export preview + data-quality reports ---
+
+  getExportPreview(batchId: number): Promise<ExportPreviewRow[]> {
+    return request<ExportPreviewRow[]>(`/export/preview?batchId=${batchId}`)
+  },
+
+  getExportReport(
+    report: ExportReportName,
+    batchId: number,
+    propertyId?: string
+  ): Promise<ExportReportRow[]> {
+    const qs = new URLSearchParams({ batchId: String(batchId) })
+    if (propertyId) qs.set("propertyId", propertyId)
+    return request<ExportReportRow[]>(`/export/reports/${report}?${qs}`)
   },
 }

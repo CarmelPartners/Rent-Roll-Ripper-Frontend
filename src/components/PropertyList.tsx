@@ -4,7 +4,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Trash2,
 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -15,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { api } from "@/lib/api"
 import type { PropertyDto } from "@/types"
 
 interface Props {
@@ -22,6 +25,7 @@ interface Props {
   onOpenHistory: (property: PropertyDto) => void
   onOpenClassMapping: (property: PropertyDto) => void
   onUploadNew: (property: PropertyDto) => void
+  onDeleted: () => void
 }
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 250]
@@ -29,9 +33,36 @@ const PAGE_SIZE_OPTIONS = [25, 50, 100, 250]
 // Client-side pagination over the already-fetched list, same pattern as
 // YardiReceivableInvoiceExport/frontend's InvoiceGrid.tsx (page size selector,
 // first/prev/next/last, "X–Y of Z" range) so the two apps behave consistently.
-export function PropertyList({ properties, onOpenHistory, onOpenClassMapping, onUploadNew }: Props) {
+export function PropertyList({
+  properties,
+  onOpenHistory,
+  onOpenClassMapping,
+  onUploadNew,
+  onDeleted,
+}: Props) {
   const [pageSize, setPageSize] = React.useState(50)
   const [page, setPage] = React.useState(0)
+  const [deletingId, setDeletingId] = React.useState<string | null>(null)
+
+  // Ports PropertyStageController.PostDelete. The backend refuses while batches still
+  // reference the property, rather than orphaning them — see properties.delete_property.
+  async function remove(p: PropertyDto) {
+    if (!confirm(`Delete property "${p.name}"? This cannot be undone.`)) return
+    setDeletingId(p.propertyID)
+    try {
+      const result = await api.deleteProperty(p.propertyID, p.propertyPK)
+      if (result.deleted) {
+        toast.success(result.message)
+        onDeleted()
+      } else {
+        toast.error(result.message)
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete property")
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const pageCount = Math.max(1, Math.ceil(properties.length / pageSize))
 
@@ -60,18 +91,22 @@ export function PropertyList({ properties, onOpenHistory, onOpenClassMapping, on
             <TableHead>Upload New RR</TableHead>
             <TableHead>Property History</TableHead>
             <TableHead>Edit Class Mapping</TableHead>
+            <TableHead className="w-20">Delete</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {properties.length === 0 && (
             <TableRow>
-              <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+              <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                 No properties found.
               </TableCell>
             </TableRow>
           )}
           {pageRows.map((p) => (
-            <TableRow key={p.propertyID}>
+            <TableRow
+              key={p.propertyID}
+              className={deletingId === p.propertyID ? "opacity-60" : undefined}
+            >
               <TableCell className="font-medium">{p.propertyID}</TableCell>
               <TableCell>{p.name}</TableCell>
               <TableCell>{p.city}</TableCell>
@@ -106,13 +141,24 @@ export function PropertyList({ properties, onOpenHistory, onOpenClassMapping, on
                   Edit Class Mapping
                 </button>
               </TableCell>
+              <TableCell>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => remove(p)}
+                  disabled={deletingId === p.propertyID}
+                  aria-label={`Delete ${p.name}`}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
         {properties.length > 0 && (
           <TableFooter>
             <TableRow>
-              <TableCell colSpan={10}>{properties.length} properties</TableCell>
+              <TableCell colSpan={11}>{properties.length} properties</TableCell>
             </TableRow>
           </TableFooter>
         )}
